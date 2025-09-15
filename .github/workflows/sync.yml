@@ -20,7 +20,7 @@ jobs:
       - name: Force Re-sync of Script
         run: |
           rm -f sync_keep_bring.py
-          wget -O sync_keep_bring.py https://raw.githubusercontent.com/Donostio/ShoppingSync/main/sync_keep_bring.py
+          python -c "import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/Donostio/ShoppingSync/main/sync_keep_bring.py', 'sync_keep_bring.py')"
 
       - name: Setup and Run
         env:
