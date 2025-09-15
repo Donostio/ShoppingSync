@@ -59,36 +59,44 @@ def sync_lists(keep_client, keep_list, bring_items, bring_client, sync_mode):
     """Performs the synchronization logic between the two lists."""
     logging.info(f"Starting sync in mode: {sync_mode}")
     
-    # Store Google Keep items
-    keep_items_dict = {item.text.strip(): item for item in keep_list.items}
+    # Normalize Google Keep items for comparison
+    normalized_keep_items_dict = {
+        ''.join(char for char in item.text.strip().lower() if char.isalnum()): item
+        for item in keep_list.items
+    }
     
-    # Store Bring! item names
-    bring_item_names = {item.get('name', '').strip() for item in bring_items.get('purchase', []) if item.get('name')}
+    # Normalize Bring! item names for comparison
+    normalized_bring_item_names = {
+        ''.join(char for char in item.get('name', '').strip().lower() if char.isalnum())
+        for item in bring_items.get('purchase', []) if item.get('name')
+    }
     
     # Sync from Google Keep to Bring!
     if sync_mode in [0, 2]:
         bring_list_id = bring_items.get('listUuid')
         if bring_list_id:
-            for item_text, item_obj in keep_items_dict.items():
+            for normalized_name, item_obj in normalized_keep_items_dict.items():
                 
                 # --- START DEBUG LOGGING BLOCK ---
-                logging.info(f"KEEP ITEM: '{item_text}'")
+                logging.info(f"KEEP ITEM: '{item_obj.text.strip()}'")
+                logging.info(f"NORMALIZED: '{normalized_name}'")
                 logging.info(f"IS CHECKED: {item_obj.checked}")
-                logging.info(f"EXISTS IN BRING: {item_text in bring_item_names}")
+                logging.info(f"EXISTS IN BRING: {normalized_name in normalized_bring_item_names}")
                 # --- END DEBUG LOGGING BLOCK ---
-
-                if item_text and item_text not in bring_item_names and not item_obj.checked:
+                
+                if normalized_name and normalized_name not in normalized_bring_item_names and not item_obj.checked:
                     try:
-                        bring_client.saveItem(bring_list_id, item_text)
-                        logging.info(f"Added '{item_text}' to Bring!")
+                        bring_client.saveItem(bring_list_id, item_obj.text.strip())
+                        logging.info(f"Added '{item_obj.text.strip()}' to Bring!")
                     except Exception as e:
-                        logging.warning(f"Could not add '{item_text}' to Bring!: {e}")
+                        logging.warning(f"Could not add '{item_obj.text.strip()}' to Bring!: {e}")
 
     # Sync from Bring! to Google Keep
     if sync_mode in [0, 1]:
         for item in bring_items['purchase']:
             item_spec = item.get('name', '').strip()
-            if item_spec and item_spec not in keep_items_dict:
+            normalized_spec = ''.join(char for char in item_spec.lower() if char.isalnum())
+            if item_spec and normalized_spec not in normalized_keep_items_dict:
                 try:
                     keep_list.add(item_spec)
                     keep_client.sync()
