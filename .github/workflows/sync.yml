@@ -1,37 +1,150 @@
-name: Google Keep <> Bring Sync
+import os
+import logging
+from gkeepapi import Keep
+from gkeepapi.node import List
+from python_bring_api.bring import Bring
 
-on:
-  schedule:
-    - cron: '0 */1 * * *'  # Runs every hour
-  
-  workflow_dispatch:  # Allows manual triggering
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-jobs:
-  sync:
-    runs-on: ubuntu-latest
-    container: python:3.10-slim
+def get_keep_list(keep, list_id):
+    """Retrieves the Google Keep list by its ID."""
+    try:
+        keep.sync()
+        note = keep.get(list_id)
+        if not note:
+            logging.error("Google Keep note not found.")
+            return None
+        
+        # Check if the note is a valid list
+        if not isinstance(note, List):
+            logging.error("Google Keep ID is for a Note, not a List. Please use the ID of a checklist.")
+            return None
+            
+        logging.info(f"Found {len(note.items)} items in Google Keep list.")
+        return note
+    except Exception as e:
+        logging.error(f"Error getting Google Keep list: {e}")
+        return None
+
+def get_bring_list(bring, list_name=None):
+    """Retrieves the Bring! list, either by name or the first one found."""
+    try:
+        response = bring.loadLists()
+        
+        # Check if the response is valid and contains the 'lists' key
+        if not isinstance(response, dict) or 'lists' not in response:
+            logging.error("Bring! API returned an invalid response. 'lists' key not found.")
+            return None
+        
+        lists = response['lists']
+        bring_list = None
+        
+        if list_name:
+            for l in lists:
+                if l.get('name') == list_name:
+                    bring_list = l
+                    break
+        elif lists:
+            bring_list = lists[0]
+        
+        if not bring_list:
+            logging.error(f"Bring! list '{list_name}' not found. Found {len(lists)} lists.")
+            return None
+
+        return bring.getItems(bring_list.get('listUuid'))
+    except Exception as e:
+        logging.error(f"Error getting Bring! list: {e}")
+        return None
+
+def sync_lists(keep_client, keep_list, bring_items, bring_client, sync_mode):
+    """Performs the synchronization logic between the two lists."""
+    logging.info(f"Starting sync in mode: {sync_mode}")
     
-    env:
-      GOOGLE_EMAIL: ${{ secrets.GOOGLE_EMAIL }}
-      KEEP_LIST_ID: ${{ secrets.KEEP_LIST_ID }}
-      BRING_EMAIL: ${{ secrets.BRING_EMAIL }}
-      BRING_PASSWORD: ${{ secrets.BRING_PASSWORD }}
-      SYNC_MODE: 0
-      BRING_LIST_NAME: SHOPPING
+    # Normalize Google Keep items for comparison
+    normalized_keep_items_dict = {
+        ''.join(char for char in item.text.strip().lower() if char.isalnum()): item
+        for item in keep_list.items
+    }
+    
+    logging.info(f"Normalized Keep Items: {normalized_keep_items_dict.keys()}")
+    
+    # Normalize Bring! item names for comparison
+    normalized_bring_item_names = {
+        ''.join(char for char in item.get('name', '').strip().lower() if char.isalnum())
+        for item in bring_items.get('purchase', []) if item.get('name')
+    }
 
-    steps:
-      - name: Checkout repository code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    # Sync from Google Keep to Bring!
+    if sync_mode in [0, 2]:
+        bring_list_id = bring_items.get('listUuid')
+        if bring_list_id:
+            for normalized_name, item_obj in normalized_keep_items_dict.items():
+                
+                # --- START DEBUG LOGGING BLOCK ---
+                logging.info(f"KEEP ITEM: '{item_obj.text.strip()}'")
+                logging.info(f"NORMALIZED: '{normalized_name}'")
+                logging.info(f"IS CHECKED: {item_obj.checked}")
+                logging.info(f"EXISTS IN BRING: {normalized_name in normalized_bring_item_names}")
+                # --- END DEBUG LOGGING BLOCK ---
+                
+                if normalized_name and normalized_name not in normalized_bring_item_names and not item_obj.checked:
+                    try:
+                        bring_client.saveItem(bring_list_id, item_obj.text.strip())
+                        logging.info(f"Added '{item_obj.text.strip()}' to Bring!")
+                    except Exception as e:
+                        logging.warning(f"Could not add '{item_obj.text.strip()}' to Bring!: {e}")
 
-      - name: Install dependencies
-        run: |
-          pip install gkeepapi
-          pip install python-bring-api
-      
-      - name: Set up Google authentication token file
-        run: echo "${{ secrets.GOOGLE_TOKEN }}" > token.txt
+    # Sync from Bring! to Google Keep
+    if sync_mode in [0, 1]:
+        for item in bring_items['purchase']:
+            item_spec = item.get('name', '').strip()
+            normalized_spec = ''.join(char for char in item_spec.lower() if char.isalnum())
+            if item_spec and normalized_spec not in normalized_keep_items_dict:
+                try:
+                    keep_list.add(item_spec)
+                    keep_client.sync()
+                    logging.info(f"Added '{item_spec}' to Google Keep")
+                except Exception as e:
+                    logging.warning(f"Could not add '{item_spec}' to Google Keep: {e}")
 
-      - name: Run the sync script
-        run: python sync_keep_bring.py
+    logging.info("Sync complete.")
+
+def main():
+    """Main function to handle authentication and initiate the sync."""
+    google_email = os.environ.get('GOOGLE_EMAIL')
+    keep_list_id = os.environ.get('KEEP_LIST_ID')
+    bring_email = os.environ.get('BRING_EMAIL')
+    bring_password = os.environ.get('BRING_PASSWORD')
+    google_token = os.environ.get('GOOGLE_TOKEN') or open('token.txt').read().strip()
+
+    sync_mode = int(os.environ.get('SYNC_MODE', 0))
+    bring_list_name = os.environ.get('BRING_LIST_NAME')
+
+    # Authentication with Google Keep
+    keep = Keep()
+    try:
+        logging.info("Logging into Google Keep...")
+        keep.authenticate(google_email, google_token)
+        logging.info("Google Keep login successful.")
+    except Exception as e:
+        logging.error(f"Failed to log into Google Keep: {e}")
+        return
+
+    # Authentication with Bring!
+    bring = Bring(bring_email, bring_password)
+    try:
+        logging.info("Logging into Bring!...")
+        bring.login()
+        logging.info("Bring! login successful.")
+    except Exception as e:
+        logging.error(f"Failed to log into Bring!: {e}")
+        return
+    
+    keep_list = get_keep_list(keep, keep_list_id)
+    bring_items = get_bring_list(bring, bring_list_name)
+    
+    if keep_list and bring_items:
+        sync_lists(keep, keep_list, bring_items, bring, sync_mode)
+    
+if __name__ == "__main__":
+    main()
