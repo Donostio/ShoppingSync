@@ -55,7 +55,7 @@ def get_bring_list(bring, list_name=None):
         logging.error(f"Error getting Bring! list: {e}")
         return None
 
-def sync_lists(keep_list, bring_items, bring_client, sync_mode):
+def sync_lists(keep_client, keep_list, bring_items, bring_client, sync_mode):
     """Performs the synchronization logic between the two lists."""
     logging.info(f"Starting sync in mode: {sync_mode}")
     
@@ -66,13 +66,15 @@ def sync_lists(keep_list, bring_items, bring_client, sync_mode):
     
     # Sync from Google Keep to Bring!
     if sync_mode in [0, 2]:
-        for item_text, item_obj in keep_items_dict.items():
-            if item_text and item_text not in bring_item_names and not item_obj.checked:
-                try:
-                    bring_client.saveItem(bring_items['listUuid'], item_text)
-                    logging.info(f"Added '{item_text}' to Bring!")
-                except Exception as e:
-                    logging.warning(f"Could not add '{item_text}' to Bring!: {e}")
+        bring_list_id = bring_items.get('listUuid')
+        if bring_list_id:
+            for item_text, item_obj in keep_items_dict.items():
+                if item_text and item_text not in bring_item_names and not item_obj.checked:
+                    try:
+                        bring_client.saveItem(bring_list_id, item_text)
+                        logging.info(f"Added '{item_text}' to Bring!")
+                    except Exception as e:
+                        logging.warning(f"Could not add '{item_text}' to Bring!: {e}")
 
     # Sync from Bring! to Google Keep
     if sync_mode in [0, 1]:
@@ -81,7 +83,7 @@ def sync_lists(keep_list, bring_items, bring_client, sync_mode):
             if item_spec and item_spec not in keep_items_dict:
                 try:
                     keep_list.add(item_spec)
-                    keep_list.sync()
+                    keep_client.sync() # This is the fix for Google Keep sync
                     logging.info(f"Added '{item_spec}' to Google Keep")
                 except Exception as e:
                     logging.warning(f"Could not add '{item_spec}' to Google Keep: {e}")
@@ -123,7 +125,7 @@ def main():
     bring_items = get_bring_list(bring, bring_list_name)
     
     if keep_list and bring_items:
-        sync_lists(keep_list, bring_items, bring, sync_mode)
+        sync_lists(keep, keep_list, bring_items, bring, sync_mode)
     
 if __name__ == "__main__":
     main()
