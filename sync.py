@@ -2,6 +2,7 @@ import os
 import logging
 from gkeepapi import Keep
 from python_bring_api.bring import Bring
+import gkeepapi.node  # Added import for gkeepapi.node
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
