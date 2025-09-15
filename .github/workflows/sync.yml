@@ -31,5 +31,5 @@ jobs:
           BRING_PASSWORD: ${{ secrets.BRING_PASSWORD }}
           SYNC_MODE: 0
           TIMEOUT: 60
-          BRING_LIST_NAME: 0
+          BRING_LIST_NAME: shopping
         run: python sync.py
