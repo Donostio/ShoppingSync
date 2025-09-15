@@ -1,0 +1,112 @@
+import os
+import time
+import logging
+from gkeepapi import Keep
+from bringapi import Bring
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def get_keep_list(keep, list_id):
+    try:
+        keep.sync()
+        note = keep.get(list_id)
+        if not note or not note.is_list:
+            logging.error("Google Keep note not found or is not a list.")
+            return None
+        return note
+    except Exception as e:
+        logging.error(f"Error getting Google Keep list: {e}")
+        return None
+
+def get_bring_list(bring, list_name=None):
+    try:
+        lists = bring.loadLists()
+        if list_name:
+            bring_list = next((l for l in lists if l['name'] == list_name), None)
+        else:
+            bring_list = lists[0] if lists else None
+
+        if not bring_list:
+            logging.error("Bring! list not found.")
+            return None
+
+        return bring.getItems(bring_list['listUuid'])
+    except Exception as e:
+        logging.error(f"Error getting Bring! list: {e}")
+        return None
+
+def sync_lists(keep_list, bring_items, sync_mode):
+    logging.info(f"Starting sync in mode: {sync_mode}")
+    
+    keep_items = {item.text.strip(): item for item in keep_list.items}
+    bring_item_names = {item['spec'].strip() for item in bring_items['purchase']}
+    
+    # Sync from Google Keep to Bring!
+    if sync_mode in [0, 2]:
+        for item_text, item_obj in keep_items.items():
+            if item_text and item_text not in bring_item_names and not item_obj.checked:
+                try:
+                    Bring.add_item(item_text, list_uuid=bring_items['listUuid'])
+                    logging.info(f"Added '{item_text}' to Bring!")
+                except Exception as e:
+                    logging.warning(f"Could not add '{item_text}' to Bring!: {e}")
+
+    # Sync from Bring! to Google Keep
+    if sync_mode in [0, 1]:
+        for item in bring_items['purchase']:
+            item_spec = item['spec'].strip()
+            if item_spec and item_spec not in keep_items:
+                try:
+                    keep_list.add(item_spec)
+                    keep_list.sync()
+                    logging.info(f"Added '{item_spec}' to Google Keep")
+                except Exception as e:
+                    logging.warning(f"Could not add '{item_spec}' to Google Keep: {e}")
+
+    logging.info("Sync complete.")
+
+def main():
+    google_email = os.environ.get('GOOGLE_EMAIL')
+    keep_list_id = os.environ.get('KEEP_LIST_ID')
+    bring_email = os.environ.get('BRING_EMAIL')
+    bring_password = os.environ.get('BRING_PASSWORD')
+    google_token = os.environ.get('GOOGLE_TOKEN') or open('token.txt').read().strip()
+
+    sync_mode = int(os.environ.get('SYNC_MODE', 0))
+    timeout_minutes = int(os.environ.get('TIMEOUT', 60))
+    bring_list_name = os.environ.get('BRING_LIST_NAME')
+
+    # Authentication
+    keep = Keep()
+    try:
+        logging.info("Logging into Google Keep...")
+        keep.resume(google_email, google_token)
+        logging.info("Google Keep login successful.")
+    except Exception as e:
+        logging.error(f"Failed to log into Google Keep: {e}")
+        return
+
+    bring = Bring()
+    try:
+        logging.info("Logging into Bring!...")
+        bring.login(email=bring_email, password=bring_password)
+        logging.info("Bring! login successful.")
+    except Exception as e:
+        logging.error(f"Failed to log into Bring!: {e}")
+        return
+    
+    while True:
+        keep_list = get_keep_list(keep, keep_list_id)
+        bring_items = get_bring_list(bring, bring_list_name)
+        
+        if keep_list and bring_items:
+            sync_lists(keep_list, bring_items, sync_mode)
+        
+        if timeout_minutes == 0:
+            break
+        
+        logging.info(f"Waiting for {timeout_minutes} minutes...")
+        time.sleep(timeout_minutes * 60)
+
+if __name__ == "__main__":
+    main()
