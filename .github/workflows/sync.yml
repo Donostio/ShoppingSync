@@ -37,4 +37,4 @@ jobs:
           BRING_PASSWORD: ${{ secrets.BRING_PASSWORD }}
           SYNC_MODE: 0
           BRING_LIST_NAME: SHOPPING
-        run: python sync.py
+        run: python sync_final.py
