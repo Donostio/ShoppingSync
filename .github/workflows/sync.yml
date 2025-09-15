@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install gkeepapi bringapi --user
+          python -m pip install gkeepapi bring_api --user
 
       - name: Set up Python path for user packages
         run: |
