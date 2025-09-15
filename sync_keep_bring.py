@@ -20,7 +20,7 @@ def get_keep_list(keep, list_id):
             logging.error("Google Keep ID is for a Note, not a List. Please use the ID of a checklist.")
             return None
             
-        logging.info(f"Found {len(note.items)} items in Google Keep list.")    
+        logging.info(f"Found {len(note.items)} items in Google Keep list.")
         return note
     except Exception as e:
         logging.error(f"Error getting Google Keep list: {e}")
@@ -65,7 +65,7 @@ def sync_lists(keep_client, keep_list, bring_items, bring_client, sync_mode):
         ''.join(char for char in item.text.strip().lower() if char.isalnum()): item
         for item in keep_list.items
     }
-
+    
     logging.info(f"Normalized Keep Items: {normalized_keep_items_dict.keys()}")
     
     # Normalize Bring! item names for comparison
@@ -73,7 +73,7 @@ def sync_lists(keep_client, keep_list, bring_items, bring_client, sync_mode):
         ''.join(char for char in item.get('name', '').strip().lower() if char.isalnum())
         for item in bring_items.get('purchase', []) if item.get('name')
     }
-    
+
     # Sync from Google Keep to Bring!
     if sync_mode in [0, 2]:
         bring_list_id = bring_items.get('listUuid')
