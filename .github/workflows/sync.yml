@@ -13,7 +13,6 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository code
         uses: actions/checkout@v4
@@ -25,19 +24,12 @@ jobs:
 
       - name: Install dependencies from requirements.txt
         run: |
-          pip install -r requirements.txt
+          pip install -r requirements.txt # This step must be here!
 
       - name: Set up Google authentication token file
         run: echo "${{ secrets.GOOGLE_TOKEN }}" > token.txt
 
       - name: Run the sync script
         env:
-          GOOGLE_EMAIL: ${{ secrets.GOOGLE_EMAIL }}
-          KEEP_LIST_ID: ${{ secrets.KEEP_LIST_ID }}
-          BRING_EMAIL: ${{ secrets.BRING_EMAIL }}
-          BRING_PASSWORD: ${{ secrets.BRING_PASSWORD }}
-          # The following variables are not secrets but can be customized
-          SYNC_MODE: 0  # 0 = bidirectional, 1 = bring master, 2 = google master
-          TIMEOUT: 60   # Sync interval in minutes (only relevant if you run the script on a longer schedule)
-          BRING_LIST_NAME: '' # Optional: name of the specific Bring list to sync
-        run: python sync.py
+          # ... (your environment variables) ...
+        run: python sync.py # This step must be last!
