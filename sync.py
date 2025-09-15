@@ -2,7 +2,7 @@ import os
 import time
 import logging
 from gkeepapi import Keep
-from bring-api import Bring
+from bringapi import Bring
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
