@@ -10,31 +10,28 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     container: python:3.10-slim
+    
+    env:
+      GOOGLE_EMAIL: ${{ secrets.GOOGLE_EMAIL }}
+      KEEP_LIST_ID: ${{ secrets.KEEP_LIST_ID }}
+      BRING_EMAIL: ${{ secrets.BRING_EMAIL }}
+      BRING_PASSWORD: ${{ secrets.BRING_PASSWORD }}
+      SYNC_MODE: 0
+      BRING_LIST_NAME: SHOPPING
 
     steps:
       - name: Checkout repository code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install dependencies
         run: |
           pip install gkeepapi
           pip install python-bring-api
       
-      - name: Run Bring! Test Script
-        env:
-          BRING_EMAIL: ${{ secrets.BRING_EMAIL }}
-          BRING_PASSWORD: ${{ secrets.BRING_PASSWORD }}
-        run: python bring_test.py
-        
       - name: Set up Google authentication token file
         run: echo "${{ secrets.GOOGLE_TOKEN }}" > token.txt
 
       - name: Run the sync script
-        env:
-          GOOGLE_EMAIL: ${{ secrets.GOOGLE_EMAIL }}
-          KEEP_LIST_ID: ${{ secrets.KEEP_LIST_ID }}
-          BRING_EMAIL: ${{ secrets.BRING_EMAIL }}
-          BRING_PASSWORD: ${{ secrets.BRING_PASSWORD }}
-          SYNC_MODE: 0
-          BRING_LIST_NAME: SHOPPING
         run: python sync_keep_bring.py
