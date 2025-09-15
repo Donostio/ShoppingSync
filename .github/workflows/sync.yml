@@ -2,32 +2,24 @@ name: Google Keep <> Bring Sync
 
 on:
   schedule:
-    - cron: '0 */1 * * *'
+    - cron: '0 */1 * * *'  # Runs every hour
   
-  workflow_dispatch:
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    container: python:3.10-slim
+
     steps:
       - name: Checkout repository code
         uses: actions/checkout@v4
 
-      - name: Set up Python environment
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          pip install gkeepapi
+          pip install python-bring-api
 
-      - name: Create and activate virtual environment
-        run: |
-          python -m venv venv
-          source venv/bin/activate
-          
-      - name: Install dependencies from requirements.txt
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-        
       - name: Set up Google authentication token file
         run: echo "${{ secrets.GOOGLE_TOKEN }}" > token.txt
 
@@ -40,6 +32,4 @@ jobs:
           SYNC_MODE: 0
           TIMEOUT: 60
           BRING_LIST_NAME:
-        run: |
-          source venv/bin/activate
-          python sync.py
+        run: python sync.py
