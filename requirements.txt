@@ -1,2 +1,2 @@
 gkeepapi
-bring_api
+python-bring-api
