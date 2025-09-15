@@ -1,0 +1,43 @@
+name: Google Keep <> Bring Sync
+
+on:
+  schedule:
+    # This cron schedule runs the workflow at the start of every hour.
+    # You can change this to suit your needs.
+    # For example, '0 0 * * *' would run it once a day at midnight UTC.
+    - cron: '0 */1 * * *'
+  
+  # This allows you to manually run the workflow from the GitHub Actions tab.
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies from requirements.txt
+        run: |
+          pip install -r requirements.txt
+
+      - name: Set up Google authentication token file
+        run: echo "${{ secrets.GOOGLE_TOKEN }}" > token.txt
+
+      - name: Run the sync script
+        env:
+          GOOGLE_EMAIL: ${{ secrets.GOOGLE_EMAIL }}
+          KEEP_LIST_ID: ${{ secrets.KEEP_LIST_ID }}
+          BRING_EMAIL: ${{ secrets.BRING_EMAIL }}
+          BRING_PASSWORD: ${{ secrets.BRING_PASSWORD }}
+          # The following variables are not secrets but can be customized
+          SYNC_MODE: 0  # 0 = bidirectional, 1 = bring master, 2 = google master
+          TIMEOUT: 60   # Sync interval in minutes (only relevant if you run the script on a longer schedule)
+          BRING_LIST_NAME: '' # Optional: name of the specific Bring list to sync
+        run: python sync.py
