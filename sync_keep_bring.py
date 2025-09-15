@@ -4,6 +4,9 @@ from gkeepapi import Keep
 from gkeepapi.node import List
 from python_bring_api.bring import Bring
 
+# Enable debug logging for the GitHub Actions runner
+# This must be done in the workflow file, not here.
+# For now, we will use INFO level for our script.
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def get_keep_list(keep, list_id):
@@ -15,9 +18,8 @@ def get_keep_list(keep, list_id):
             logging.error("Google Keep note not found.")
             return None
         
-        # Check if the note is a valid list
         if not isinstance(note, List):
-            logging.error("Google Keep ID is for a Note, not a List. Please use the ID of a checklist.")
+            logging.error("Google Keep ID is for a Note, not a List.")
             return None
             
         logging.info(f"Found {len(note.items)} items in Google Keep list.")
@@ -30,10 +32,8 @@ def get_bring_list(bring, list_name=None):
     """Retrieves the Bring! list, either by name or the first one found."""
     try:
         response = bring.loadLists()
-        
-        # Check if the response is valid and contains the 'lists' key
         if not isinstance(response, dict) or 'lists' not in response:
-            logging.error("Bring! API returned an invalid response. 'lists' key not found.")
+            logging.error("Bring! API returned an invalid response.")
             return None
         
         lists = response['lists']
@@ -48,7 +48,7 @@ def get_bring_list(bring, list_name=None):
             bring_list = lists[0]
         
         if not bring_list:
-            logging.error(f"Bring! list '{list_name}' not found. Found {len(lists)} lists.")
+            logging.error(f"Bring! list '{list_name}' not found.")
             return None
 
         return bring.getItems(bring_list.get('listUuid'))
@@ -56,45 +56,55 @@ def get_bring_list(bring, list_name=None):
         logging.error(f"Error getting Bring! list: {e}")
         return None
 
+def log_item_status(item_text, normalized_name, is_checked, exists_in_bring):
+    """Logs the detailed status of each item for debugging."""
+    logging.info(f"Processing Item: '{item_text.strip()}'")
+    logging.info(f"    Normalized Name: '{normalized_name}'")
+    logging.info(f"    IS CHECKED: {is_checked}")
+    logging.info(f"    EXISTS IN BRING!: {exists_in_bring}")
+    
+    if not is_checked and not exists_in_bring:
+        logging.info("    -> Condition met: Will attempt to add to Bring!")
+    elif is_checked:
+        logging.info("    -> Condition not met: Item is checked in Keep.")
+    elif exists_in_bring:
+        logging.info("    -> Condition not met: Item already exists in Bring!.")
+    else:
+        logging.info("    -> Condition not met: Item name is blank or invalid.")
+
 def sync_lists(keep_client, keep_list, bring_items, bring_client, sync_mode):
     """Performs the synchronization logic between the two lists."""
     logging.info(f"Starting sync in mode: {sync_mode}")
     
-    # Normalize Google Keep items for comparison
     normalized_keep_items_dict = {
         ''.join(char for char in item.text.strip().lower() if char.isalnum()): item
         for item in keep_list.items
     }
     
-    logging.info(f"Normalized Keep Items: {normalized_keep_items_dict.keys()}")
+    logging.info(f"Normalized Keep Items: {list(normalized_keep_items_dict.keys())}")
     
-    # Normalize Bring! item names for comparison
     normalized_bring_item_names = {
         ''.join(char for char in item.get('name', '').strip().lower() if char.isalnum())
         for item in bring_items.get('purchase', []) if item.get('name')
     }
 
-    # Sync from Google Keep to Bring!
     if sync_mode in [0, 2]:
         bring_list_id = bring_items.get('listUuid')
         if bring_list_id:
             for normalized_name, item_obj in normalized_keep_items_dict.items():
                 
-                # --- START DEBUG LOGGING BLOCK ---
-                logging.info(f"KEEP ITEM: '{item_obj.text.strip()}'")
-                logging.info(f"NORMALIZED: '{normalized_name}'")
-                logging.info(f"IS CHECKED: {item_obj.checked}")
-                logging.info(f"EXISTS IN BRING: {normalized_name in normalized_bring_item_names}")
-                # --- END DEBUG LOGGING BLOCK ---
+                # Use the new logging function for clarity
+                is_checked = item_obj.checked
+                exists_in_bring = normalized_name in normalized_bring_item_names
+                log_item_status(item_obj.text, normalized_name, is_checked, exists_in_bring)
                 
-                if normalized_name and normalized_name not in normalized_bring_item_names and not item_obj.checked:
+                if normalized_name and not is_checked and not exists_in_bring:
                     try:
                         bring_client.saveItem(bring_list_id, item_obj.text.strip())
-                        logging.info(f"Added '{item_obj.text.strip()}' to Bring!")
+                        logging.info(f"✅ Added '{item_obj.text.strip()}' to Bring!")
                     except Exception as e:
-                        logging.warning(f"Could not add '{item_obj.text.strip()}' to Bring!: {e}")
+                        logging.warning(f"⚠️ Could not add '{item_obj.text.strip()}' to Bring!: {e}")
 
-    # Sync from Bring! to Google Keep
     if sync_mode in [0, 1]:
         for item in bring_items['purchase']:
             item_spec = item.get('name', '').strip()
@@ -103,9 +113,9 @@ def sync_lists(keep_client, keep_list, bring_items, bring_client, sync_mode):
                 try:
                     keep_list.add(item_spec)
                     keep_client.sync()
-                    logging.info(f"Added '{item_spec}' to Google Keep")
+                    logging.info(f"✅ Added '{item_spec}' to Google Keep")
                 except Exception as e:
-                    logging.warning(f"Could not add '{item_spec}' to Google Keep: {e}")
+                    logging.warning(f"⚠️ Could not add '{item_spec}' to Google Keep: {e}")
 
     logging.info("Sync complete.")
 
@@ -120,7 +130,6 @@ def main():
     sync_mode = int(os.environ.get('SYNC_MODE', 0))
     bring_list_name = os.environ.get('BRING_LIST_NAME')
 
-    # Authentication with Google Keep
     keep = Keep()
     try:
         logging.info("Logging into Google Keep...")
@@ -130,7 +139,6 @@ def main():
         logging.error(f"Failed to log into Google Keep: {e}")
         return
 
-    # Authentication with Bring!
     bring = Bring(bring_email, bring_password)
     try:
         logging.info("Logging into Bring!...")
