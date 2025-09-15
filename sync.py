@@ -10,9 +10,9 @@ def get_keep_list(keep, list_id):
     try:
         keep.sync()
         note = keep.get(list_id)
-        if not note or not note.is_list:
-            logging.error("Google Keep note not found or is not a list.")
-            return None
+        if not note or note.type != 'List':
+         logging.error("Google Keep note not found or is not a list.")
+        return None
         return note
     except Exception as e:
         logging.error(f"Error getting Google Keep list: {e}")
