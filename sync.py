@@ -79,7 +79,7 @@ def main():
     keep = Keep()
     try:
         logging.info("Logging into Google Keep...")
-        keep.authenticate(email=google_email, token=google_token)
+        keep.authenticate(google_email, google_token)
         logging.info("Google Keep login successful.")
     except Exception as e:
         logging.error(f"Failed to log into Google Keep: {e}")
