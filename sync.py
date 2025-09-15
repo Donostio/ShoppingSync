@@ -1,8 +1,8 @@
 import os
 import logging
 from gkeepapi import Keep
+from gkeepapi.node import List  # This is the corrected import
 from python_bring_api.bring import Bring
-import gkeepapi.node  # This is the line that was missing
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -15,8 +15,8 @@ def get_keep_list(keep, list_id):
             logging.error("Google Keep note not found.")
             return None
         
-        # Check if the note is a valid list
-        if not isinstance(note, gkeepapi.node.List):
+        # This check now works correctly
+        if not isinstance(note, List):
             logging.error("Google Keep ID is for a Note, not a List. Please use the ID of a checklist.")
             return None
             
