@@ -30,7 +30,7 @@ jobs:
       - name: Set up Google authentication token file
         run: echo "${{ secrets.GOOGLE_TOKEN }}" > token.txt
 
-     - name: Run the sync script
+      - name: Run the sync script
         env:
           GOOGLE_EMAIL: ${{ secrets.GOOGLE_EMAIL }}
           KEEP_LIST_ID: ${{ secrets.KEEP_LIST_ID }}
