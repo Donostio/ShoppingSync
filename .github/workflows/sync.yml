@@ -2,13 +2,9 @@ name: Google Keep <> Bring Sync
 
 on:
   schedule:
-    # This cron schedule runs the workflow at the start of every hour.
-    # You can change this to suit your needs.
-    # For example, '0 0 * * *' would run it once a day at midnight UTC.
-    - cron: '0 */1 * * *'
+    - cron: '0 */1 * * *'  # Runs every hour
   
-  # This allows you to manually run the workflow from the GitHub Actions tab.
-  workflow_dispatch:
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
   sync:
