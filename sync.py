@@ -13,6 +13,12 @@ def get_keep_list(keep, list_id):
         if not note:
             logging.error("Google Keep note not found.")
             return None
+        
+        # Check if the note is a valid list
+        if not isinstance(note, gkeepapi.node.List):
+            logging.error("Google Keep ID is for a Note, not a List. Please use the ID of a checklist.")
+            return None
+            
         return note
     except Exception as e:
         logging.error(f"Error getting Google Keep list: {e}")
@@ -53,7 +59,9 @@ def sync_lists(keep_list, bring_items, bring_client, sync_mode):
     logging.info(f"Starting sync in mode: {sync_mode}")
     
     keep_items_dict = {item.text.strip(): item for item in keep_list.items}
-    bring_item_names = {item['spec'].strip() for item in bring_items['purchase']}
+    
+    # Use a set comprehension with .get() to avoid KeyErrors
+    bring_item_names = {item.get('spec', '').strip() for item in bring_items['purchase'] if item.get('spec')}
     
     # Sync from Google Keep to Bring!
     if sync_mode in [0, 2]:
@@ -68,7 +76,7 @@ def sync_lists(keep_list, bring_items, bring_client, sync_mode):
     # Sync from Bring! to Google Keep
     if sync_mode in [0, 1]:
         for item in bring_items['purchase']:
-            item_spec = item['spec'].strip()
+            item_spec = item.get('spec', '').strip()
             if item_spec and item_spec not in keep_items_dict:
                 try:
                     keep_list.add(item_spec)
