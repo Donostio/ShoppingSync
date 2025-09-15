@@ -20,6 +20,7 @@ def get_keep_list(keep, list_id):
             logging.error("Google Keep ID is for a Note, not a List. Please use the ID of a checklist.")
             return None
             
+        logging.info(f"Found {len(note.items)} items in Google Keep list.")    
         return note
     except Exception as e:
         logging.error(f"Error getting Google Keep list: {e}")
