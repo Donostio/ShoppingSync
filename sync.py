@@ -35,7 +35,7 @@ def get_bring_list(bring, list_name=None):
         logging.error(f"Error getting Bring! list: {e}")
         return None
 
-def sync_lists(keep_list, bring_items, sync_mode):
+def sync_lists(keep_list, bring_items, bring_client, sync_mode):
     logging.info(f"Starting sync in mode: {sync_mode}")
     
     keep_items = {item.text.strip(): item for item in keep_list.items}
@@ -46,7 +46,7 @@ def sync_lists(keep_list, bring_items, sync_mode):
         for item_text, item_obj in keep_items.items():
             if item_text and item_text not in bring_item_names and not item_obj.checked:
                 try:
-                    Bring.add_item(item_text, list_uuid=bring_items['listUuid'])
+                    bring_client.saveItem(bring_items['listUuid'], item_text)
                     logging.info(f"Added '{item_text}' to Bring!")
                 except Exception as e:
                     logging.warning(f"Could not add '{item_text}' to Bring!: {e}")
@@ -73,40 +73,32 @@ def main():
     google_token = os.environ.get('GOOGLE_TOKEN') or open('token.txt').read().strip()
 
     sync_mode = int(os.environ.get('SYNC_MODE', 0))
-    timeout_minutes = int(os.environ.get('TIMEOUT', 60))
     bring_list_name = os.environ.get('BRING_LIST_NAME')
 
     # Authentication
     keep = Keep()
     try:
         logging.info("Logging into Google Keep...")
-        keep.resume(google_email, google_token)
+        keep.authenticate(email=google_email, token=google_token)
         logging.info("Google Keep login successful.")
     except Exception as e:
         logging.error(f"Failed to log into Google Keep: {e}")
         return
 
-    bring = Bring()
+    bring = Bring(bring_email, bring_password)
     try:
         logging.info("Logging into Bring!...")
-        bring.login(email=bring_email, password=bring_password)
+        bring.login()
         logging.info("Bring! login successful.")
     except Exception as e:
         logging.error(f"Failed to log into Bring!: {e}")
         return
     
-    while True:
-        keep_list = get_keep_list(keep, keep_list_id)
-        bring_items = get_bring_list(bring, bring_list_name)
-        
-        if keep_list and bring_items:
-            sync_lists(keep_list, bring_items, sync_mode)
-        
-        if timeout_minutes == 0:
-            break
-        
-        logging.info(f"Waiting for {timeout_minutes} minutes...")
-        time.sleep(timeout_minutes * 60)
-
+    keep_list = get_keep_list(keep, keep_list_id)
+    bring_items = get_bring_list(bring, bring_list_name)
+    
+    if keep_list and bring_items:
+        sync_lists(keep_list, bring_items, bring, sync_mode)
+    
 if __name__ == "__main__":
     main()
