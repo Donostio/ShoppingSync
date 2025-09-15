@@ -65,6 +65,8 @@ def sync_lists(keep_client, keep_list, bring_items, bring_client, sync_mode):
         ''.join(char for char in item.text.strip().lower() if char.isalnum()): item
         for item in keep_list.items
     }
+
+    logging.info(f"Normalized Keep Items: {normalized_keep_items_dict.keys()}")
     
     # Normalize Bring! item names for comparison
     normalized_bring_item_names = {
