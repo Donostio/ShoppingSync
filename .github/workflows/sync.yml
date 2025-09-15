@@ -19,7 +19,13 @@ jobs:
         run: |
           pip install gkeepapi
           pip install python-bring-api
-
+      
+      - name: Run Bring! Test Script
+        env:
+          BRING_EMAIL: ${{ secrets.BRING_EMAIL }}
+          BRING_PASSWORD: ${{ secrets.BRING_PASSWORD }}
+        run: python bring_test.py
+        
       - name: Set up Google authentication token file
         run: echo "${{ secrets.GOOGLE_TOKEN }}" > token.txt
 
@@ -30,6 +36,4 @@ jobs:
           BRING_EMAIL: ${{ secrets.BRING_EMAIL }}
           BRING_PASSWORD: ${{ secrets.BRING_PASSWORD }}
           SYNC_MODE: 0
-          TIMEOUT: 60
-          BRING_LIST_NAME: SHOPPING
         run: python sync.py
