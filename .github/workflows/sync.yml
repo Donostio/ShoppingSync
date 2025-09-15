@@ -30,7 +30,13 @@ jobs:
       - name: Set up Google authentication token file
         run: echo "${{ secrets.GOOGLE_TOKEN }}" > token.txt
 
-      - name: Run the sync script
+     - name: Run the sync script
         env:
-          # ... (your environment variables) ...
-        run: python sync.py # This step must be last!
+          GOOGLE_EMAIL: ${{ secrets.GOOGLE_EMAIL }}
+          KEEP_LIST_ID: ${{ secrets.KEEP_LIST_ID }}
+          BRING_EMAIL: ${{ secrets.BRING_EMAIL }}
+          BRING_PASSWORD: ${{ secrets.BRING_PASSWORD }}
+          SYNC_MODE: 0
+          TIMEOUT: 60
+          BRING_LIST_NAME:
+        run: python sync.py
