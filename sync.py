@@ -21,25 +21,29 @@ def get_keep_list(keep, list_id):
 def get_bring_list(bring, list_name=None):
     """Retrieves the Bring! list, either by name or the first one found."""
     try:
-        lists = bring.loadLists()
+        response = bring.loadLists()
+        
+        # Check if the response is valid and contains the 'lists' key
+        if not isinstance(response, dict) or 'lists' not in response:
+            logging.error("Bring! API returned an invalid response. 'lists' key not found.")
+            return None
+        
+        lists = response['lists']
         bring_list = None
+        
         if list_name:
             for l in lists:
-                if l['name'] == list_name:
+                if l.get('name') == list_name:
                     bring_list = l
                     break
-        else:
-            if lists:
-                bring_list = lists[0]
-            else:
-                logging.error("No Bring! lists found.")
-                return None
-
+        elif lists:
+            bring_list = lists[0]
+        
         if not bring_list:
-            logging.error("Bring! list not found.")
+            logging.error(f"Bring! list '{list_name}' not found. Found {len(lists)} lists.")
             return None
 
-        return bring.getItems(bring_list['listUuid'])
+        return bring.getItems(bring_list.get('listUuid'))
     except Exception as e:
         logging.error(f"Error getting Bring! list: {e}")
         return None
